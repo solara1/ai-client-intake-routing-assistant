@@ -1,5 +1,4 @@
 # AI Client Intake and Routing Assistant for a Career Advice Project
-
 ## Project Overview
 
 This project automates the initial review and routing of potential clients for a career advice project.
