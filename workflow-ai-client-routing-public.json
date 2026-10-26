@@ -1,0 +1,649 @@
+{
+  "name": "Curso AI automation - Proyecto Final",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "client-intake",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "f6b51df4-58cc-4f9d-a9b7-6946883b39f4",
+      "name": "Receive Client Intake"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "71712eff-a025-43cb-a667-b83e181fc2db",
+              "leftValue": "={{ $json.body.name }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "085cf89b-3252-4251-be05-145e5335f408",
+              "leftValue": "={{ $json.body.goal }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "6c7fe87a-0a5d-4351-9bd3-c9e23026b09f",
+              "leftValue": "={{ $json.body.main_challenge }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        224,
+        0
+      ],
+      "id": "36e3ec4e-d99f-40e4-ac42-a9dc034c72ec",
+      "name": "Validate Intake"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Career Advice Routing Data"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Services"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        464,
+        -256
+      ],
+      "id": "e88c22f9-d4f9-43ac-b878-f002a3219552",
+      "name": "Get Service Information"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "services",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        688,
+        -256
+      ],
+      "id": "76204c1f-931f-4c2b-a4b6-e6e25a939779",
+      "name": "Aggregate Service Information."
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        960,
+        -32
+      ],
+      "id": "ef501ed0-1e28-460d-990c-141465b40c39",
+      "name": "Merge Intake and Services"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1104,
+        176
+      ],
+      "id": "8a535413-c129-4430-84fd-97364c23ce8e",
+      "name": "OpenAI Chat Model"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Client intake and service reference data:\n\n{{ JSON.stringify($json) }}",
+        "options": {
+          "systemMessage": "You are an internal routing assistant for a career advice project.\n\nYour role is to review a potential client's intake together with the available service information and determine the most appropriate next step.\n\nUse only the client information and service information provided in the workflow input.\n\nYour responsibilities:\n- identify the client's main need;\n- compare that need with the available services;\n- recommend the most relevant service when there is a clear match;\n- route the case to human review when the information is ambiguous, incomplete, outside the available services, or requires human judgment.\n\nRules:\n- Do not invent information about the client.\n- Do not invent services, prices, availability, guarantees, or outcomes.\n- Do not recommend a service that is not included in the provided service information.\n- Do not make a confident recommendation if more than one option appears equally plausible.\n- Do not make decisions that require a human commitment or exception.\n\nIf the case requires human review, begin the response exactly with:\n\n[HUMAN_REVIEW]\n\nIf the case can be routed automatically, begin the response exactly with:\n\n[ROUTE]\n\nAfter the tag, include the recommended service and a brief reason."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1104,
+        16
+      ],
+      "id": "811ef5a9-c6bb-4bf9-ab55-6513046c776c",
+      "name": "Client Routing Agent"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d5c7a725-32e0-4ccb-beca-551509ece278",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "[HUMAN_REVIEW]",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1472,
+        16
+      ],
+      "id": "810e6b2d-7216-41b1-9cc6-f97ae7589c48",
+      "name": "Needs Human Review?"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Career Advice Routing Data"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1466321939,
+          "mode": "list",
+          "cachedResultName": "Routing Results"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "name": "={{ $('Receive Client Intake').item.json.body.name }}",
+            "goal": "={{ $('Receive Client Intake').item.json.body.goal }}",
+            "main_challenge": "={{ $('Receive Client Intake').item.json.body.main_challenge }}",
+            "agent_output": "={{ $json.output }}",
+            "routing_status": "automatic"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "goal",
+              "displayName": "goal",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "main_challenge",
+              "displayName": "main_challenge",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "agent_output",
+              "displayName": "agent_output",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "routing_status",
+              "displayName": "routing_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1696,
+        112
+      ],
+      "id": "e244c42e-ae0b-4897-95c3-3a6366047aaa",
+      "name": "Log Automatic Routing"
+    },
+    {
+      "parameters": {
+        "sendTo": "your-email@example.com",
+        "subject": "Client intake requires human review",
+        "emailType": "text",
+        "message": "=A client intake requires human review.  Name: {{ $('Receive Client Intake').item.json.body.name }}  Goal: {{ $('Receive Client Intake').item.json.body.goal }}  Main challenge: {{ $('Receive Client Intake').item.json.body.main_challenge }}  Agent output: {{ $json.output }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1696,
+        -80
+      ],
+      "id": "059e7386-c2e0-4754-884a-b51fec9bc60b",
+      "name": "Notify Human Review"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ecd8f705-0fd4-4f9a-8cfe-c3168d857b89",
+              "name": "routing_status",
+              "value": "invalid_intake",
+              "type": "string"
+            },
+            {
+              "id": "29d46146-8ed5-4cf6-b283-8d0c7b326151",
+              "name": "agent_output",
+              "value": "Missing required intake fields",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        464,
+        464
+      ],
+      "id": "71a52008-6397-4ff3-82b3-f5106feffc0b",
+      "name": "Prepare Invalid Intake Log"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Career Advice Routing Data"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1466321939,
+          "mode": "list",
+          "cachedResultName": "Routing Results"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "name": "={{ $('Receive Client Intake').item.json.body.name }}",
+            "goal": "={{ $('Receive Client Intake').item.json.body.goal }}",
+            "main_challenge": "={{ $('Receive Client Intake').item.json.body.main_challenge }}",
+            "agent_output": "={{ $json.agent_output }}",
+            "routing_status": "{{ $json.routing_status }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "goal",
+              "displayName": "goal",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "main_challenge",
+              "displayName": "main_challenge",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "agent_output",
+              "displayName": "agent_output",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "routing_status",
+              "displayName": "routing_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        688,
+        464
+      ],
+      "id": "3c334a04-09ff-4f4d-901a-3fc1a2953286",
+      "name": "Log Invalid Intake"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Career Advice Routing Data"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1466321939,
+          "mode": "list",
+          "cachedResultName": "Routing Results"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "name": "={{ $('Receive Client Intake').item.json.body.name }}",
+            "goal": "={{ $('Receive Client Intake').item.json.body.goal }}",
+            "main_challenge": "={{ $('Receive Client Intake').item.json.body.main_challenge }}",
+            "agent_output": "={{ $('Client Routing Agent').item.json.output }}",
+            "routing_status": "human_review"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "goal",
+              "displayName": "goal",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "main_challenge",
+              "displayName": "main_challenge",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "agent_output",
+              "displayName": "agent_output",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "routing_status",
+              "displayName": "routing_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1920,
+        -80
+      ],
+      "id": "d80e782c-9f52-46e7-b46a-46d6e789929e",
+      "name": "Log Human Review"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Receive Client Intake": {
+      "main": [
+        [
+          {
+            "node": "Validate Intake",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Intake": {
+      "main": [
+        [
+          {
+            "node": "Merge Intake and Services",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Get Service Information",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Invalid Intake Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Service Information": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Service Information.",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Service Information.": {
+      "main": [
+        [
+          {
+            "node": "Merge Intake and Services",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Intake and Services": {
+      "main": [
+        [
+          {
+            "node": "Client Routing Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Client Routing Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Client Routing Agent": {
+      "main": [
+        [
+          {
+            "node": "Needs Human Review?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Human Review?": {
+      "main": [
+        [
+          {
+            "node": "Notify Human Review",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Automatic Routing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Human Review": {
+      "main": [
+        [
+          {
+            "node": "Log Human Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Invalid Intake Log": {
+      "main": [
+        [
+          {
+            "node": "Log Invalid Intake",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "tags": []
+}
