@@ -156,19 +156,19 @@ The screenshots below show the workflow canvas and successful test executions.
 
 ### Workflow Overview
 
-To be added after final implementation.
+![Workflow Overview](Workflow.png)
 
 ### Successful Automatic Routing
 
-To be added after final implementation.
+![Successful Automatic Routing](Log%20Automatic.png)
 
 ### Human Review Path
 
-To be added after final implementation.
+![Human Review Path](Log%20Human%20Review.png)
 
 ### Error Handling
 
-To be added after final implementation.
+![Invalid Intake Handling](Log%20Invalid.png)
 
 ## Repository Contents
 
