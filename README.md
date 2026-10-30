@@ -10,6 +10,32 @@ The workflow combines information received through a Webhook with service inform
 
 The objective is not to fully automate client decisions, but to reduce repetitive manual work while keeping human intervention for ambiguous or out-of-scope cases.
 
+## Setup
+
+1. Import `workflow-ai-client-routing-public.json` into n8n.
+2. Connect your own credentials for:
+   - Google Sheets
+   - Gmail
+   - OpenAI
+3. Replace `YOUR_GOOGLE_SHEET_ID` with the ID of your own Google Sheet.
+4. Make sure the spreadsheet contains:
+   - a `Services` sheet with the service reference data;
+   - a `Routing Results` sheet with the expected output columns.
+5. Replace `your-email@example.com` with the email address that should receive human-review notifications.
+6. Activate the workflow and test the Webhook using a POST request with the expected intake fields.
+
+No credentials, API keys, or personal data are included in the public workflow file.
+
+### Required configuration
+
+The public JSON uses placeholders instead of real credentials or personal identifiers. These values must be configured after import:
+
+- `YOUR_GOOGLE_SHEET_ID`
+- `your-email@example.com`
+- n8n credentials for Google Sheets
+- n8n credentials for Gmail
+- OpenAI connection/model access
+
 ## Business Case
 
 The process being automated is the first review and classification of potential client intakes.
