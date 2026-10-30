@@ -34,7 +34,7 @@ The public JSON uses placeholders instead of real credentials or personal identi
 - `your-email@example.com`
 - n8n credentials for Google Sheets
 - n8n credentials for Gmail
-- OpenAI connection/model access
+- AI model access in n8n (OpenAI or the configured AI provider)
 
 ## Business Case
 
@@ -77,6 +77,16 @@ The main benefit is not only time saved, but also scalability. As intake volume 
 
 The automation would stop making sense if intake volume were extremely low, implementation and maintenance costs became higher than the time saved, or the majority of cases required human judgment.
 
+### Implementation and Payback
+
+The initial implementation effort was approximately 4–6 hours, including workflow design, prompt development, integration setup, testing and documentation.
+
+At the current expected volume, AI model and automation costs should remain relatively low because the workflow performs one short routing decision per intake.
+
+With an estimated 11–16 hours saved per month, the initial implementation effort could be recovered within the first month of regular use.
+
+The exact financial payback depends on the value assigned to the team's time and the actual volume of incoming requests.
+
 ## Workflow
 
 `Webhook → Input Validation → Google Sheets → AI Agent → Routing Decision → Google Sheets / Gmail`
@@ -96,56 +106,62 @@ The agent needs to evaluate the client's context together with the available ser
 
 A simple LLM chain would be appropriate for a fixed transformation or text-generation task, but in this workflow the model needs to apply decision rules, handle ambiguity, and determine when human intervention is required.
 
-## Model Choice: Cloud vs. Local
+## Model Choice: Cloud vs Local
 
-The main AI Agent uses a cloud-based model.
+This workflow uses **OpenAI gpt-5-mini** through n8n.
 
-The decision is based on three factors:
+A cloud model was selected because the expected volume is low to moderate and the routing task does not require local infrastructure or specialized hardware.
 
-- **Cost:** expected message volume is initially low to moderate, so usage-based pricing is more practical than maintaining dedicated local infrastructure.
-- **Privacy:** the workflow mainly processes professional context and career-related information. The amount of data sent to the model can also be limited to what is necessary for routing.
-- **Maintenance and availability:** a cloud model avoids the need to maintain hardware, deploy model updates, or manage local infrastructure.
+For this use case, gpt-5-mini provides enough reasoning capability to compare client needs against the available services and decide between automatic routing and human review.
 
-The main limitation is dependency on an external provider and increasing usage costs if volume grows significantly.
+The main advantages are:
+- simple integration with n8n;
+- low infrastructure overhead;
+- good availability and response time;
+- usage-based cost suitable for the expected volume.
 
-If usage increased substantially, a hybrid or local model could be considered for simpler classifications.
+The main limitation is dependency on an external provider. If volume increased significantly, a hybrid or local approach could be evaluated for simpler classification tasks.
 
 ## System Prompt
 
 ```text
-You are an internal assistant for a career advice project.
+You are an internal routing assistant for a career advice project.
 
-Your role is to perform an initial review of potential client intakes and help determine which available service may be the most relevant next step.
+Your role is to review a potential client's intake together with the available service information and determine the most appropriate next step.
 
-Use only the information provided in the client intake and the service information available to you.
+Use only the client information and service information provided in the workflow input.
+
+Your responsibilities:
+- identify the client's main need;
+- compare that need with the available services;
+- recommend the most relevant service when there is a clear match;
+- route the case to human review when the information is ambiguous, incomplete, outside the available services, or requires human judgment.
 
 Rules:
 - Do not invent information about the client.
-- Do not invent services, prices, availability, or guarantees.
-- Do not promise employment outcomes.
-- If information is insufficient or ambiguous, do not make a confident recommendation.
-- If the case is outside the scope of the available services, route it to human review.
-- If the user explicitly asks to speak with a person, do not attempt to resolve the request automatically.
+- Do not invent services, prices, availability, guarantees, or outcomes.
+- Do not recommend a service that is not included in the provided service information.
+- Do not make a confident recommendation if more than one option appears equally plausible.
+- Do not make decisions that require a human commitment or exception.
 
-Human escalation:
-When a case requires human review, begin the response exactly with:
+If the case requires human review, begin the response exactly with:
 
 [HUMAN_REVIEW]
 
-Do not use this tag when human review is not required.
+If the case can be routed automatically, begin the response exactly with:
 
-Keep responses concise, clear, and appropriate for an internal routing workflow.
+[ROUTE]
+
+After the tag, include the recommended service and a brief reason.
 ```
 
 ## Error Handling and Edge Cases
-
-The workflow includes control points to reduce the risk of incorrect automated actions.
 
 ### 1. Missing or incomplete intake data
 
 An IF validation step checks whether the minimum required client information is available before the AI Agent processes the case.
 
-If key information is missing, the workflow routes the case to human review instead of generating an automatic recommendation.
+If key information is missing, the workflow stops the normal routing process and records the case as `invalid_intake` in Google Sheets. This prevents incomplete requests from reaching the AI Agent.
 
 ### 2. Ambiguous or out-of-scope cases
 
@@ -155,22 +171,21 @@ An IF node checks the agent output for this tag and sends those cases through th
 
 ### 3. Integration failures
 
-External services such as Google Sheets or Gmail may fail because of connection, permission, or authentication issues.
+External services such as Google Sheets, Gmail or the AI provider may fail because of connection, permission or authentication issues.
 
-These points can be monitored using n8n error-handling logic so failed executions do not continue with incomplete data.
+The current version does not include a dedicated API-failure recovery branch. A future improvement would be to add n8n `Error Trigger` or `onError` handling to log failed executions and notify an operator.
 
 ## Outputs
 
-The workflow produces two possible outcomes:
+The workflow produces three possible outcomes:
 
-- **Automatic routing:** the result is recorded in Google Sheets.
-- **Human review:** the case is flagged and the team is notified by email.
-
-This keeps the automated process useful while preserving human control over ambiguous or higher-risk decisions.
+- **Automatic routing:** the recommendation is recorded in Google Sheets with the status `automatic`.
+- **Human review:** the case is flagged, the team is notified by email, and the result is recorded with the status `human_review`.
+- **Invalid intake:** requests missing required information are recorded with the status `invalid_intake` without being sent to the AI Agent.
 
 ## Testing
 
-The workflow is tested with at least three scenarios:
+The workflow was tested with three scenarios:
 
 1. A complete intake that can be routed automatically.
 2. A case that explicitly requires human review.
@@ -199,14 +214,15 @@ The screenshots below show the workflow canvas and successful test executions.
 ## Repository Contents
 
 ```text
-.
+
+client-intake-routing-assistant/
 ├── README.md
-├── workflow-ai-client-routing.json
-└── screenshots/
-    ├── workflow-overview.png
-    ├── successful-run.png
-    ├── human-review.png
-    └── error-handling.png
+├── workflow-ai-client-routing-public.json
+├── Workflow.png
+├── Log Automatic.png
+├── Log Human Review.png
+└── Log Invalid.png
+
 ```
 
 ## Security Note
